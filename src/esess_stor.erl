@@ -33,7 +33,7 @@
 ]).
 
 -record(state, {sessions = [],
-	expire_time = 1}).
+	life_time = 1}).
 
 -record(session,{
 	ssid=""
@@ -200,6 +200,11 @@ handle_cast(_Request, State) ->
 	{noreply, NewState :: #state{}} |
 	{noreply, NewState :: #state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #state{}}).
+handle_info({delete,SSID},#state{
+		sessions = Sessions} = State) ->
+	{noreply,State#state{
+		sessions = proplists:delete(
+			SSID,Sessions)}};
 handle_info(flush,State) ->
 	lager:info(
 		"~nSessions flushed.~n",[]),
