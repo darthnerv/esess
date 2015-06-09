@@ -24,6 +24,9 @@
 %%--------------------------------------------------------------------
 
 start() ->
+	application:ensure_started(syntax_tools),
+	application:ensure_started(compiler),
+	application:ensure_started(goldrush),
 	application:ensure_started(lager),
 	application:start(esess).
 
