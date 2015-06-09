@@ -25,6 +25,7 @@
 %%--------------------------------------------------------------------
 
 start() ->
+	application:ensure_started(crypto),
 	application:ensure_started(syntax_tools),
 	application:ensure_started(compiler),
 	application:ensure_started(goldrush),

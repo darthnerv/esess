@@ -31,9 +31,12 @@
 	code_change/3
 ]).
 
--define(SERVER, ?MODULE).
+-record(state, {sessions = [],
+	expire_time = 1}).
 
--record(state, {}).
+-record(session,{
+	ssid=""
+}).
 
 %%%===================================================================
 %%% API
@@ -91,7 +94,7 @@ extend(SSID) ->
 -spec(start_link() ->
 	{ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
 start_link() ->
-	gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -129,6 +132,17 @@ init([]) ->
 	{noreply, NewState :: #state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), Reply :: term(), NewState :: #state{}} |
 	{stop, Reason :: term(), NewState :: #state{}}).
+handle_call(create,_Form,#state{
+		sessions = Sessions } = State) ->
+	SSID = base64:encode_to_string(
+		crypto:strong_rand_bytes(32)),
+	Session =
+		#session{ ssid = SSID },
+	lager:info("~nSession created:~n ~p ~n",
+		[Session]),
+	{reply,{ok,Session},
+		State#state{ sessions =
+			[{SSID,Session}|Sessions]}};
 handle_call(_Request, _From, State) ->
 	{reply, ok, State}.
 
