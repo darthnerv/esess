@@ -14,6 +14,13 @@
 %% API
 -export([start_link/0]).
 
+-export([
+	create/0,
+	flush/0,
+	extend/1,
+	delete/1
+]).
+
 %% gen_server callbacks
 -export([
 	init/1,
@@ -31,6 +38,49 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
+
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Call synchronized process wich creates new session in gen_server state
+%% and returns empty record #sess{}.
+%%
+%% @end
+%%--------------------------------------------------------------------
+create() ->
+	gen_server:call(?MODULE,create).
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Clear all sessions from gen_server state
+%%
+%% @end
+%%--------------------------------------------------------------------
+flush() ->
+	?MODULE ! flush.
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Call asynchronized process wich delete session
+%% from gen_server state
+%%
+%% @end
+%%--------------------------------------------------------------------
+delete(SSID) ->
+	?MODULE ! {delete,SSID}.
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Extend lifetime of session
+%%
+%% @end
+%%--------------------------------------------------------------------
+extend(SSID) ->
+	?MODULE ! {extend,SSID}.
 
 %%--------------------------------------------------------------------
 %% @doc
