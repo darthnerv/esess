@@ -154,7 +154,7 @@ handle_call(create,_Form,#state{
 	lager:info("~nSession created:~n ~p ~n",
 		[Session]),
 	{reply, {ok,Session},
-		State#state{ sessions =
+		State#state{sessions =
 			[{SSID,Session}|Sessions]}};
 handle_call({get,SSID},_From,#state{
 		sessions = Sessions } = State) ->
@@ -202,6 +202,8 @@ handle_cast(_Request, State) ->
 	{stop, Reason :: term(), NewState :: #state{}}).
 handle_info({delete,SSID},#state{
 		sessions = Sessions} = State) ->
+	lager:info(
+		"~nSessions deleted.~n",[]),
 	{noreply,State#state{
 		sessions = proplists:delete(
 			SSID,Sessions)}};
