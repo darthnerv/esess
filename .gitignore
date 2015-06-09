@@ -1,0 +1,7 @@
+.idea/*
+.rebar/*
+deps/*
+ebin/*
+
+*.dump
+*.iml

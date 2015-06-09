@@ -1,0 +1,19 @@
+%%%-------------------------------------------------------------------
+%%% @author phyzx
+%%% @copyright (C) 2015, <COMPANY>
+%%% @doc
+%%%
+%%% @end
+%%% Created : 09. Jun 2015 12:09 PM
+%%%-------------------------------------------------------------------
+{application, esess, [
+	{description, ""},
+	{vsn, "1"},
+	{registered, []},
+	{applications, [
+		kernel,
+		stdlib
+	]},
+	{mod, {esess_app, []}},
+	{env, []}
+]}.
