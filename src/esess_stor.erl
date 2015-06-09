@@ -17,6 +17,7 @@
 -export([
 	create/0,
 	flush/0,
+	get/1,
 	extend/1,
 	delete/1
 ]).
@@ -57,7 +58,8 @@ create() ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Clear all sessions from gen_server state
+%% Call asynchronized process wich
+%% clear all sessions from gen_server state
 %%
 %% @end
 %%--------------------------------------------------------------------
@@ -78,12 +80,23 @@ delete(SSID) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Extend lifetime of session
+%% Call asynchronized process wich extends lifetime of session
 %%
 %% @end
 %%--------------------------------------------------------------------
 extend(SSID) ->
 	?MODULE ! {extend,SSID}.
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Call synchronized process wich get session
+%% record by specific session_id
+%%
+%% @end
+%%--------------------------------------------------------------------
+get(SSID) ->
+	gen_server:call(?MODULE,{get,SSID}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -140,9 +153,22 @@ handle_call(create,_Form,#state{
 		#session{ ssid = SSID },
 	lager:info("~nSession created:~n ~p ~n",
 		[Session]),
-	{reply,{ok,Session},
+	{reply, {ok,Session},
 		State#state{ sessions =
 			[{SSID,Session}|Sessions]}};
+handle_call({get,SSID},_From,#state{
+		sessions = Sessions } = State) ->
+	case proplists:get_value(
+		SSID,Sessions) of
+		undefined ->
+			lager:info(
+				"~nSession with id [~p]. Not Found.~n",[SSID]),
+			{reply,{error,not_found},State};
+		Session ->
+			lager:info(
+				"~nSession found:~n ~p ~n",[Session]),
+			{reply,{ok,Session},State}
+	end;
 handle_call(_Request, _From, State) ->
 	{reply, ok, State}.
 
@@ -174,6 +200,11 @@ handle_cast(_Request, State) ->
 	{noreply, NewState :: #state{}} |
 	{noreply, NewState :: #state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #state{}}).
+handle_info(flush,State) ->
+	lager:info(
+		"~nSessions flushed.~n",[]),
+	{noreply,State#state{
+		sessions = []}};
 handle_info(_Info, State) ->
 	{noreply, State}.
 
