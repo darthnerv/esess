@@ -7,6 +7,7 @@
 %%% Created : 09. Jun 2015 3:29 PM
 %%%-------------------------------------------------------------------
 -module(esess_stor).
+
 -author("phyzx").
 
 -behaviour(gen_server).
@@ -32,12 +33,7 @@
 	code_change/3
 ]).
 
--record(state, {sessions = [],
-	life_time = 1}).
-
--record(session,{
-	ssid=""
-}).
+-record(state, {sessions = [], prototype = []}).
 
 %%%===================================================================
 %%% API
@@ -53,6 +49,7 @@
 %% @end
 %%--------------------------------------------------------------------
 create() ->
+
 	gen_server:call(?MODULE,create).
 
 %%--------------------------------------------------------------------
@@ -64,6 +61,7 @@ create() ->
 %% @end
 %%--------------------------------------------------------------------
 flush() ->
+
 	?MODULE ! flush.
 
 %%--------------------------------------------------------------------
@@ -75,6 +73,7 @@ flush() ->
 %% @end
 %%--------------------------------------------------------------------
 delete(SSID) ->
+
 	?MODULE ! {delete,SSID}.
 
 %%--------------------------------------------------------------------
@@ -85,6 +84,7 @@ delete(SSID) ->
 %% @end
 %%--------------------------------------------------------------------
 extend(SSID) ->
+
 	?MODULE ! {extend,SSID}.
 
 %%--------------------------------------------------------------------
@@ -96,6 +96,7 @@ extend(SSID) ->
 %% @end
 %%--------------------------------------------------------------------
 get(SSID) ->
+
 	gen_server:call(?MODULE,{get,SSID}).
 
 %%--------------------------------------------------------------------
@@ -106,8 +107,11 @@ get(SSID) ->
 %%--------------------------------------------------------------------
 -spec(start_link() ->
 	{ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
+
 start_link() ->
-	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+
+	gen_server:start_link(
+		{local, ?MODULE}, ?MODULE, [init], []).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -127,8 +131,30 @@ start_link() ->
 -spec(init(Args :: term()) ->
 	{ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
+
+init([init]) ->
+
+	init(esess:genv(rec,[]));
+
 init([]) ->
-	{ok, #state{}}.
+
+	{ok,#state{}};
+
+init(Args) ->
+
+	{ok,#state{prototype =
+
+		lists:foldl(fun
+
+			({Name,Value},Acc) ->
+
+				[{to_bin(Name),Value}|Acc];
+
+			(_,Acc) -> Acc
+
+		end,[],[{<<"ssid">>,""}|Args])
+
+	}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -145,31 +171,50 @@ init([]) ->
 	{noreply, NewState :: #state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), Reply :: term(), NewState :: #state{}} |
 	{stop, Reason :: term(), NewState :: #state{}}).
+
 handle_call(create,_Form,#state{
-		sessions = Sessions } = State) ->
-	SSID = base64:encode_to_string(
-		crypto:strong_rand_bytes(32)),
+		sessions = Sessions,
+			prototype = Prototype } = State) ->
+
+	SSID = list_to_binary(
+		base64:encode_to_string(
+			crypto:strong_rand_bytes(32))),
+
 	Session =
-		#session{ ssid = SSID },
+		set_value(<<"ssid">>,
+			SSID,Prototype),
+
 	lager:info("~nSession created:~n ~p ~n",
 		[Session]),
-	{reply, {ok,Session},
+
+	{reply, ok,
 		State#state{sessions =
 			[{SSID,Session}|Sessions]}};
+
 handle_call({get,SSID},_From,#state{
 		sessions = Sessions } = State) ->
+
 	case proplists:get_value(
 		SSID,Sessions) of
+
 		undefined ->
+
 			lager:info(
 				"~nSession with id [~p]. Not Found.~n",[SSID]),
+
 			{reply,{error,not_found},State};
+
 		Session ->
+
 			lager:info(
 				"~nSession found:~n ~p ~n",[Session]),
+
 			{reply,{ok,Session},State}
+
 	end;
+
 handle_call(_Request, _From, State) ->
+
 	{reply, ok, State}.
 
 %%--------------------------------------------------------------------
@@ -183,7 +228,9 @@ handle_call(_Request, _From, State) ->
 	{noreply, NewState :: #state{}} |
 	{noreply, NewState :: #state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #state{}}).
+
 handle_cast(_Request, State) ->
+
 	{noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -200,19 +247,34 @@ handle_cast(_Request, State) ->
 	{noreply, NewState :: #state{}} |
 	{noreply, NewState :: #state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #state{}}).
+
 handle_info({delete,SSID},#state{
 		sessions = Sessions} = State) ->
+
 	lager:info(
 		"~nSessions deleted.~n",[]),
+
 	{noreply,State#state{
 		sessions = proplists:delete(
 			SSID,Sessions)}};
+
 handle_info(flush,State) ->
+
 	lager:info(
 		"~nSessions flushed.~n",[]),
+
 	{noreply,State#state{
 		sessions = []}};
+
+handle_info(sessions,State) ->
+
+	lager:info("~nSessions: ~p ~n",
+		[State#state.sessions]),
+
+	{noreply,State};
+
 handle_info(_Info, State) ->
+
 	{noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -228,7 +290,9 @@ handle_info(_Info, State) ->
 %%--------------------------------------------------------------------
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
 		State :: #state{}) -> term()).
+
 terminate(_Reason, _State) ->
+
 	ok.
 
 %%--------------------------------------------------------------------
@@ -242,9 +306,68 @@ terminate(_Reason, _State) ->
 -spec(code_change(OldVsn :: term() | {down, term()}, State :: #state{},
 		Extra :: term()) ->
 	{ok, NewState :: #state{}} | {error, Reason :: term()}).
+
 code_change(_OldVsn, State, _Extra) ->
+
 	{ok, State}.
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% @end
+%%--------------------------------------------------------------------
+
+to_bin(Name)
+		when is_binary(Name) ->
+
+	Name;
+
+to_bin(Name)
+		when is_list(Name) ->
+
+	list_to_binary(Name);
+
+to_bin(Name)
+		when is_float(Name) ->
+
+	to_bin(
+		io_lib:format("~.2f",Name));
+
+to_bin(Name)
+	when is_integer(Name) ->
+
+		to_bin(
+			integer_to_list(Name));
+
+to_bin(Name)
+	when is_atom(Name) ->
+
+		atom_to_binary(Name,latin1).
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% @end
+%%--------------------------------------------------------------------
+
+set_value({Name,_OldValue},
+		NewValue,Proplist) ->
+
+	[{Name,NewValue} |
+		proplists:delete(Name,Proplist)];
+
+set_value(none,_,Proplist) -> Proplist;
+
+set_value(Name,Value,Proplist) ->
+
+	set_value(proplists:lookup(
+		Name,Proplist),Value,Proplist).
+
+
+

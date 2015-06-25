@@ -19,6 +19,7 @@
 
 -define(SERVER, ?MODULE).
 
+
 %%%===================================================================
 %%% API functions
 %%%===================================================================
@@ -31,7 +32,9 @@
 %%--------------------------------------------------------------------
 -spec(start_link() ->
 	{ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
+
 start_link() ->
+
 	supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
 %%%===================================================================
@@ -55,12 +58,15 @@ start_link() ->
 	}} |
 	ignore |
 	{error, Reason :: term()}).
+
 init([]) ->
+
 	RestartStrategy = one_for_one,
 	MaxRestarts = 1000,
 	MaxSecondsBetweenRestarts = 3600,
 
-	SupFlags = {RestartStrategy, MaxRestarts, MaxSecondsBetweenRestarts},
+	SupFlags = {RestartStrategy, MaxRestarts,
+		MaxSecondsBetweenRestarts},
 
 	Restart = permanent,
 	Shutdown = 5000,
