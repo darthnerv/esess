@@ -18,7 +18,9 @@
 -export([
 	create/0,
 	flush/0,
-	get/1,
+	set/2,
+	get/3,
+	get_session/1,
 	extend/1,
 	delete/1
 ]).
@@ -39,12 +41,40 @@
 %%% API
 %%%===================================================================
 
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Call synchronized process wich returns num of values
+%%
+%% @end
+%%--------------------------------------------------------------------
+get(SSID,Values,ReurnType)
+		when is_list(Values) ->
+
+	gen_server:call(
+		?MODULE,{get,SSID,Values,ReurnType});
+
+get(_,_,_) -> [].
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Call asynchronized process wich updates session args
+%%
+%% @end
+%%--------------------------------------------------------------------
+set(SSID,Values)
+		when is_list(Values) ->
+
+	?MODULE ! {set,SSID,Values};
+
+set(_,_) -> [].
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
 %% Call synchronized process wich creates new session in gen_server state
-%% and returns empty record #sess{}.
+%% and returns empty session
 %%
 %% @end
 %%--------------------------------------------------------------------
@@ -95,9 +125,9 @@ extend(SSID) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-get(SSID) ->
+get_session(SSID) ->
 
-	gen_server:call(?MODULE,{get,SSID}).
+	gen_server:call(?MODULE,{get_session,SSID}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -191,7 +221,35 @@ handle_call(create,_Form,#state{
 		State#state{sessions =
 			[{SSID,Session}|Sessions]}};
 
-handle_call({get,SSID},_From,#state{
+handle_call({get,SSID,Values,ReurnType},_From,#state{
+	sessions = Sessions } = State) ->
+
+	case proplists:get_value(
+		SSID,Sessions) of
+
+		undefined ->
+
+			lager:info(
+				"~nSession with id [~p]. Not Found.~n",[SSID]),
+
+			{reply,{error,[]},State};
+
+		Session ->
+
+			Args = lists:foldl(fun
+
+				(Name,Acc) ->
+
+					Acc ++ get_value(
+						Name,Session,ReurnType)
+
+			end,[],Values),
+
+			{reply,{ok,Args},State}
+
+	end;
+
+handle_call({get_session,SSID},_From,#state{
 		sessions = Sessions } = State) ->
 
 	case proplists:get_value(
@@ -247,6 +305,36 @@ handle_cast(_Request, State) ->
 	{noreply, NewState :: #state{}} |
 	{noreply, NewState :: #state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #state{}}).
+
+handle_info({set,SSID,Args},#state{
+		sessions = Sessions} = State) ->
+
+	case proplists:get_value(
+		SSID,Sessions) of
+
+		undefined ->
+
+			{noreply,State};
+
+		Session ->
+
+			UpdatedSession = lists:foldl(fun
+
+				({Name,Val},Acc) ->
+
+					set_value(
+						proplists:lookup(Name,Acc)
+							,Val,Acc);
+
+				(_,Acc) -> Acc
+
+			end,Session,Args),
+
+			{noreply,State#state{sessions =
+				[{SSID,UpdatedSession}] ++
+					proplists:delete(SSID,Sessions) }}
+
+	end;
 
 handle_info({delete,SSID},#state{
 		sessions = Sessions} = State) ->
@@ -321,7 +409,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-
 to_bin(Name)
 		when is_binary(Name) ->
 
@@ -355,9 +442,41 @@ to_bin(Name)
 %%
 %% @end
 %%--------------------------------------------------------------------
+get_value(Name,Session,args) ->
 
+	case proplists:get_value(
+		Name,Session) of
+
+		undefined -> [];
+
+		Val -> [Val]
+
+	end;
+
+get_value(Name,Session,proplist) ->
+
+	case proplists:get_value(
+		Name,Session) of
+
+		undefined -> [];
+
+		Val -> [{Name,Val}]
+
+	end;
+
+get_value(_,_,_) -> [].
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% @end
+%%--------------------------------------------------------------------
 set_value({Name,_OldValue},
 		NewValue,Proplist) ->
+
+	lager:info(
+		"~nSession value [~p] modified to [~p] .~n",[Name,NewValue]),
 
 	[{Name,NewValue} |
 		proplists:delete(Name,Proplist)];
